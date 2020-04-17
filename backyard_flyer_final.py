@@ -155,16 +155,19 @@ class BackyardFlyer(Drone):
         """
         self.take_control()
         self.arm()
-
-        # set the current location to be the home position
-        self.set_home_position(self.global_position[0],
-                self.global_position[1],
-                self.global_position[2])
-
         self.flight_state = States.ARMING
-        self.calculate_box()
+        
         # assume when armed mission starts
         self.in_mission = True
+
+        # set home position
+        self.set_home_position(
+                                self.global_position[0],
+                                self.global_position[1],
+                                self.global_position[2]
+                              )
+
+        self.calculate_box()
         print("arming transition")
 
     def takeoff_transition(self):
