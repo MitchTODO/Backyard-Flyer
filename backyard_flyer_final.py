@@ -18,16 +18,32 @@ class States(Enum):
     LANDING = 4
     DISARMING = 5
 
-#class Tools():
+class Tools():
 
-    # 35°N,45°E (≈ Baghdad) to 35°N,135°E (≈ Osaka),
-    # Formula:	θ = atan2( sin Δλ ⋅ cos φ2 , cos φ1 ⋅ sin φ2 − sin φ1 ⋅ cos φ2 ⋅ cos Δλ )
-    # where	φ1,λ1 is the start point, φ2,λ2 the end point (Δλ is the difference in longitude)
-#    def bearing(start_north,start_east,end_north,end_east):
-#        y = math.sin(end_east-start_east) * math.cos(end_north)
-#        x = math.cos(start_north) * math.sin(end_north) - math.sin(start_north) * math.cos(end_north) * math.cos(end_east-start_east)
-#        brng = math.atan2(y, x)
-#        return brng
+    """
+     calculates bearing (heading)
+
+     inputs: start_north: float
+             start_east: float
+             end_north: float
+             end_east: float
+     output: float
+     Formula:	θ = atan2( sin Δλ ⋅ cos φ2 , cos φ1 ⋅ sin φ2 − sin φ1 ⋅ cos φ2 ⋅ cos Δλ )
+     where	φ1,λ1 is the start point, φ2,λ2 the end point (Δλ is the difference in longitude)
+    """
+    def bearing(start_north,start_east,end_north,end_east):
+        # convert long, lat to radians
+        lat1 = math.radians(start_north)
+        lat2 = math.radians(end_north)
+
+        diffLong = math.radians(end_east - start_east)
+
+        x = math.sin(diffLong) * math.cos(lat2)
+        y = math.cos(lat1) * math.sin(lat2) - (math.sin(lat1)
+            * math.cos(lat2) * math.cos(diffLong))
+
+        initial_bearing = math.atan2(x, y)
+        return initial_bearing
 
 
 class BackyardFlyer(Drone):
@@ -49,6 +65,11 @@ class BackyardFlyer(Drone):
         self.register_callback(MsgID.STATE, self.state_callback)
 
     def local_position_callback(self):
+        """
+        TODO: Implement this method
+
+        This triggers when `MsgID.LOCAL_POSITION` is received and self.local_position contains new data
+        """
 
         altitude = -1.0 * self.local_position[2]
         altitude_acc = 0.95 * self.local_position[2]
@@ -69,14 +90,8 @@ class BackyardFlyer(Drone):
                     # at home coords, now landing
                     self.landing_transition()
                 else:
-                    # move to next waypoint
+                # move to next waypoint
                     self.waypoint_transition()
-
-        """
-        TODO: Implement this method
-
-        This triggers when `MsgID.LOCAL_POSITION` is received and self.local_position contains new data
-        """
 
 
     def velocity_callback(self):
@@ -85,13 +100,19 @@ class BackyardFlyer(Drone):
 
         This triggers when `MsgID.LOCAL_VELOCITY` is received and self.local_velocity contains new data
         """
-        #print (self.local_velocity)
         if self.flight_state == States.LANDING:
             if ((self.global_position[2] - self.global_home[2] < 0.1) and abs(self.local_position[2]) < 0.01):
                 self.disarming_transition()
 
 
+
+
     def state_callback(self):
+        """
+        TODO: Implement this method
+
+        This triggers when `MsgID.STATE` is received and self.armed and self.guided contain new data
+        """
         if not self.in_mission:
             return # leave me alone im flying
         # drone is ready to fly a mission
@@ -105,11 +126,7 @@ class BackyardFlyer(Drone):
         elif self.flight_state == States.DISARMING:
             if not self.armed:
                 self.manual_transition()
-        """
-        TODO: Implement this method
 
-        This triggers when `MsgID.STATE` is received and self.armed and self.guided contain new data
-        """
 
 
     def calculate_box(self):
@@ -118,10 +135,10 @@ class BackyardFlyer(Drone):
         1. Return waypoints to fly a box
         """
         coords = [
-                  [15.0, 0.0, 5.0],
-                  [15.0, 15.0, 5.0],
-                  [0.0, 15.0, 5.0],
-                  ]
+                  [15.0, 0.0, 3.0],
+                  [15.0, 15.0, 3.0],
+                  [0.0, 15.0, 3.0]
+                 ]
 
         for coord in coords:
             self.all_waypoints.append(coord)
@@ -157,7 +174,7 @@ class BackyardFlyer(Drone):
         2. Command a takeoff to 3.0m
         3. Transition to the TAKEOFF state
         """
-        target_altitude = 5.0
+        target_altitude = 3.0
         self.target_position[2] = target_altitude
         self.takeoff(target_altitude)
         self.flight_state = States.TAKEOFF
@@ -174,12 +191,14 @@ class BackyardFlyer(Drone):
             # going to home coords
             self.target_position[0] = 0.0
             self.target_position[1] = 0.0
+
+
         else:
             # moving to next waypoint
             self.target_position = self.all_waypoints.pop(0)
         #(north, east, altitude, heading)
-        #bearing = Tools.bearing(self.global_position[0],self.global_position[1],self.target_position[0], self.target_position[1])
-        self.cmd_position(self.target_position[0], self.target_position[1], self.target_position[2], 0.0)
+        bearing = Tools.bearing(self.local_position[0],self.local_position[1],self.target_position[0], self.target_position[1])
+        self.cmd_position(self.target_position[0], self.target_position[1], self.target_position[2], bearing)
         self.flight_state = States.WAYPOINT
         print("waypoint transition")
 
